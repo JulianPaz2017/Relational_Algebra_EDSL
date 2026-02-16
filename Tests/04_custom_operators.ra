@@ -1,0 +1,101 @@
+// ============================================================
+// 04_custom_operators.ra
+// Tests de operadores custom (DEFINE/UNDEFINE)
+// ============================================================
+
+CREATE r {a INT, b INT};
+CREATE s {a INT, b INT};
+CREATE t {a INT, b INT};
+CREATE u {a INT, b INT};
+
+INSERT r (r.a, r.b) {
+  (1, 2),
+  (3, 4),
+  (5, 6),
+  (7, 8)
+};
+
+INSERT s (s.a, s.b) {
+  (3, 4),
+  (5, 6),
+  (9, 10)
+};
+
+INSERT t (t.a, t.b) {
+  (1, 2),
+  (9, 10)
+};
+
+INSERT u (u.a, u.b) {
+  (9, 10)
+};
+
+// ---- OPERADORES DERIVADOS CLÁSICOS ----
+
+// Intersección: r ∩ s = r - (r - s)
+DEFINE interseccion(x, y) = difference(x, difference(x, y));
+
+// Probar intersección
+interseccion(r, s);
+
+// Intersección con sí misma
+interseccion(r, r);
+
+// Intersección vacía
+interseccion(r, u);
+
+// Diferencia simétrica: (r - s) ∪ (s - r)
+DEFINE diff_simetrica(x, y) = union(difference(x, y), difference(y, x));
+
+diff_simetrica(r, s);
+diff_simetrica(r, r);
+
+// ---- OPERADORES CON SELECCIÓN ----
+
+// Filtrar por primer atributo mayor a un valor
+DEFINE filtrar_mayores(x, y) = select{x.a > y.a}(cartesian_product(x, rename{y}(x)));
+
+// Seleccionar tuplas con a > 3
+DEFINE sel_mayor_a(x) = select{x.a > 3}(x);
+
+sel_mayor_a(r);
+sel_mayor_a(s);
+
+// ---- OPERADORES CON PROYECCIÓN ----
+
+DEFINE solo_primer_attr(x) = project{x.a}(x);
+
+solo_primer_attr(r);
+solo_primer_attr(s);
+
+// ---- OPERADORES COMPUESTOS ----
+
+// Intersección y luego proyección
+DEFINE interseccion_proyectada(x, y) = project{x.a}(interseccion(x, y));
+
+interseccion_proyectada(r, s);
+
+// Diferencia y selección
+DEFINE diferencia_filtrada(x, y) = select{x.a > 2}(difference(x, y));
+
+diferencia_filtrada(r, s);
+
+// ---- OPERADORES RECURSIVOS ----
+
+// Operador que usa otros operadores custom
+DEFINE elementos_exclusivos(x, y) = union(
+  difference(x, y),
+  difference(y, x)
+);
+
+elementos_exclusivos(r, s);
+elementos_exclusivos(r, t);
+
+// ---- UNDEFINE ----
+
+// Deshacer operador
+UNDEFINE solo_primer_attr;
+
+// ---- DROP ----
+
+DROP t;

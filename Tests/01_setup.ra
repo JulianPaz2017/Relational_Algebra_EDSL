@@ -1,0 +1,42 @@
+// ============================================================
+// 01_setup.ra
+// Creación de relaciones base para todos los tests
+// ============================================================
+
+// Relaciones base
+CREATE estudiantes {nombre STRING, edad INT, ciudad STRING};
+CREATE profesores  {nombre STRING, edad INT, ciudad STRING};
+CREATE cursos      {codigo STRING, nombre STRING, creditos INT};
+CREATE inscripciones {estudiante STRING, curso STRING, nota DOUBLE};
+
+// Insertar estudiantes
+INSERT estudiantes (estudiantes.nombre, estudiantes.edad, estudiantes.ciudad) {
+  ("Ana",   20, "Rosario"),
+  ("Bob",   22, "CABA"),
+  ("Clara", 19, "Cordoba"),
+  ("David", 25, "Rosario"),
+  ("Elena", 18, "CABA")
+};
+
+// Insertar profesores
+INSERT profesores (profesores.nombre, profesores.edad, profesores.ciudad) {
+  ("Bob",    22, "CABA"),
+  ("Felipe", 40, "Rosario"),
+  ("Greta",  35, "Cordoba")
+};
+
+// Insertar cursos
+INSERT cursos (cursos.codigo, cursos.nombre, cursos.creditos) {
+  ("MAT01", "Matematica",  6),
+  ("INF01", "Informatica", 4),
+  ("FIS01", "Fisica",      5)
+};
+
+// Insertar inscripciones
+INSERT inscripciones (inscripciones.estudiante, inscripciones.curso, inscripciones.nota) {
+  ("Ana",   "MAT01", 8.5),
+  ("Ana",   "INF01", 9.0),
+  ("Bob",   "MAT01", 7.0),
+  ("Clara", "FIS01", 6.5),
+  ("David", "INF01", 5.0)
+};

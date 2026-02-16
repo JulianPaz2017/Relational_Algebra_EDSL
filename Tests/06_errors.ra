@@ -1,0 +1,73 @@
+// ============================================================
+// 06_errors.ra
+// Tests de errores esperados
+// Cada sentencia debería producir un error específico.
+// Ejecutar de a una para verificar el mensaje de error.
+// ============================================================
+
+CREATE r {a INT, b INT};
+CREATE s {a INT, b INT};
+CREATE t {a INT, b STRING};
+
+INSERT r (r.a, r.b) {
+  (1, 2),
+  (3, 4)
+};
+
+INSERT s (s.a, s.b) {
+  (5, 6)
+};
+
+
+// ---- ERROR: Relación no existe ----
+
+// ERROR: "no existe la relación 'inexistente'"
+inexistente;
+
+
+// ---- ERROR: Atributo no existe en project ----
+
+// ERROR: "Se proyectaron atributos que no pertenecen a la relación"
+project{r.c}(r);
+
+
+// ---- ERROR: Atributo no existe en predicado ----
+
+// ERROR: "Uno de los atributos ingresados no existe"
+select{r.c == 1}(r);
+
+
+// ---- ERROR: Unión de esquemas distintos ----
+
+// ERROR: "Unión de dos relaciones con esquemas distintos" (distintos dominios)
+union(r, t);
+
+
+// ---- ERROR: Diferencia de esquemas distintos ----
+
+// ERROR: "Diferencia de dos relaciones con esquemas distintos"
+difference(r, t);
+
+
+// ---- ERROR: Producto cartesiano de relaciones con mismo nombre ----
+
+// ERROR: "Producto cartesiano de dos relaciones con el mismo nombre"
+cartesian_product(r, r);
+
+
+// ---- ERROR: Operador no definido ----
+
+// ERROR: "El operador 'op_inexistente' no está definido"
+op_inexistente(r, s);
+
+
+// ---- ERROR: Operador con aridad incorrecta ----
+
+DEFINE mi_op(x, y) = union(x, y);
+
+// ERROR: recibió menos argumentos de lo esperado
+mi_op(r);
+
+// ERROR: recibió más argumentos de lo esperado
+mi_op(r, s, r);
+

@@ -1,0 +1,86 @@
+// ============================================================
+// 02_basic_ops.ra
+// Tests de operaciones básicas del AR
+// ============================================================
+
+CREATE personas {nombre STRING, edad INT, ciudad STRING};
+CREATE mayores  {nombre STRING, edad INT, ciudad STRING};
+
+INSERT personas (personas.nombre, personas.edad, personas.ciudad) {
+  ("Ana",   20, "Rosario"),
+  ("Bob",   22, "CABA"),
+  ("Clara", 19, "Cordoba"),
+  ("David", 25, "Rosario"),
+  ("Elena", 18, "CABA")
+};
+
+INSERT mayores (mayores.nombre, mayores.edad, mayores.ciudad) {
+  ("Bob",   22, "CABA"),
+  ("David", 25, "Rosario")
+};
+
+// ---- SELECT ----
+
+// Seleccionar personas mayores de 18
+select{personas.edad > 18}(personas);
+
+// Seleccionar personas de Rosario
+select{personas.ciudad == "Rosario"}(personas);
+
+// Predicado compuesto: mayores de 18 Y de Rosario
+select{personas.edad > 18 && personas.ciudad == "Rosario"}(personas);
+
+// Predicado compuesto: menores de 20 O de CABA
+select{personas.edad < 20 || personas.ciudad == "CABA"}(personas);
+
+// Predicado con NOT
+select{!(personas.ciudad == "CABA")}(personas);
+
+// Predicado siempre verdadero
+select{True}(personas);
+
+// Predicado siempre falso
+select{False}(personas);
+
+// Predicado comparando dos atributos de la misma tupla
+select{personas.edad == personas.edad}(personas);
+
+
+// ---- PROJECT ----
+
+// Proyectar solo nombre
+project{personas.nombre}(personas);
+
+// Proyectar nombre y ciudad
+project{personas.nombre, personas.ciudad}(personas);
+
+// Proyectar todos los atributos (equivalente a identidad)
+project{personas.nombre, personas.edad, personas.ciudad}(personas);
+
+
+// ---- RENAME ----
+
+// Renombrar relación
+rename{alumnos}(personas);
+
+// Renombrar y proyectar
+project{alumnos.nombre}(rename{alumnos}(personas));
+
+// ---- UNION ----
+
+// Unión de relaciones con mismo esquema
+union(personas, mayores);
+
+// Unión consigo misma (idempotente)
+union(personas, personas);
+
+// ---- DIFFERENCE ----
+
+// Diferencia: personas que NO son mayores
+difference(personas, mayores);
+
+// Diferencia consigo misma (resultado vacío)
+difference(personas, personas);
+
+// Diferencia inversa
+difference(mayores, personas);

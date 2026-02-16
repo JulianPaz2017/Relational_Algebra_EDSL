@@ -1,0 +1,155 @@
+// ============================================================
+// 07_complex_queries.ra
+// Consultas complejas que combinan múltiples operaciones
+// ============================================================
+
+CREATE empleados    {nombre STRING, depto STRING, salario INT};
+CREATE departamentos {codigo STRING, nombre STRING, presupuesto INT};
+CREATE proyectos    {nombre STRING, depto STRING, costo INT};
+
+INSERT empleados (empleados.nombre, empleados.depto, empleados.salario) {
+  ("Ana",    "IT",   80000),
+  ("Bob",    "IT",   70000),
+  ("Clara",  "HR",   60000),
+  ("David",  "HR",   65000),
+  ("Elena",  "IT",   90000),
+  ("Felipe", "FIN",  75000),
+  ("Greta",  "FIN",  72000)
+};
+
+INSERT departamentos (departamentos.codigo, departamentos.nombre, departamentos.presupuesto) {
+  ("IT",  "Tecnologia", 500000),
+  ("HR",  "Recursos Humanos", 200000),
+  ("FIN", "Finanzas", 300000),
+  ("MKT", "Marketing", 150000)
+};
+
+INSERT proyectos (proyectos.nombre, proyectos.depto, proyectos.costo) {
+  ("Sistema ERP",  "IT",  200000),
+  ("App Mobile",   "IT",  150000),
+  ("Capacitacion", "HR",   50000),
+  ("Auditoria",    "FIN", 100000)
+};
+
+// ---- DEFINIR OPERADORES ÚTILES ----
+
+DEFINE interseccion(x, y) = difference(x, difference(x, y));
+
+DEFINE join(x, y, attr) = select{x.attr == y.attr}(cartesian_product(x, y));
+
+
+// ---- CONSULTAS COMPLEJAS ----
+
+// 1. Empleados del departamento IT con salario mayor a 75000
+select{empleados.depto == "IT" && empleados.salario > 75000}(empleados);
+
+
+// 2. Nombres de empleados del departamento IT
+project{empleados.nombre}(
+  select{empleados.depto == "IT"}(empleados)
+);
+
+
+// 3. Empleados con su departamento (join manual)
+select{empleados.depto == departamentos.codigo}(
+  cartesian_product(empleados, departamentos)
+);
+
+
+// 4. Nombres de empleados y nombre de su departamento
+project{empleados.nombre, departamentos.nombre}(
+  select{empleados.depto == departamentos.codigo}(
+    cartesian_product(empleados, departamentos)
+  )
+);
+
+
+// 5. Departamentos que tienen proyectos
+project{departamentos.codigo}(
+  select{departamentos.codigo == proyectos.depto}(
+    cartesian_product(departamentos, proyectos)
+  )
+);
+
+CREATE aaaaa AS project{departamentos.codigo}(departamentos);
+
+CREATE aaaaaa AS project{departamentos.codigo}(
+    select{departamentos.codigo == proyectos.depto}(
+      cartesian_product(departamentos, proyectos)
+    )
+  );
+
+// 6. Departamentos SIN proyectos
+difference(
+  project{departamentos.codigo}(departamentos),
+  project{departamentos.codigo}(
+    select{departamentos.codigo == proyectos.depto}(
+      cartesian_product(departamentos, proyectos)
+    )
+  )
+);
+
+
+// 7. Empleados en departamentos con proyectos
+select{empleados.depto == proyectos.depto}(
+  cartesian_product(empleados, proyectos)
+);
+
+
+// 8. Empleados con salario mayor al promedio de su departamento
+// (simulado: empleados de IT con salario > 80000)
+select{empleados.salario > 80000 && empleados.depto == "IT"}(empleados);
+
+
+// 9. Pares de empleados del mismo departamento
+project{e1.nombre, e2.nombre}(
+  select{e1.depto == e2.depto && e1.nombre != e2.nombre}(
+    cartesian_product(
+      rename{e1}(empleados),
+      rename{e2}(empleados)
+    )
+  )
+);
+
+
+// 10. Empleados que trabajan en departamentos con presupuesto > 300000
+project{empleados.nombre}(
+  select{empleados.depto == departamentos.codigo && departamentos.presupuesto > 300000}(
+    cartesian_product(empleados, departamentos)
+  )
+);
+
+
+// 11. Crear relación derivada y operar sobre ella
+CREATE empleados_it AS select{empleados.depto == "IT"}(empleados);
+CREATE empleados_fin AS select{empleados.depto == "FIN"}(empleados);
+
+// Unión de empleados IT y FIN
+union(empleados_it, empleados_fin);
+
+// Diferencia: IT pero no FIN (siempre todos los de IT)
+difference(empleados_it, empleados_fin);
+
+
+// 12. Consulta con múltiples niveles de anidamiento
+project{empleados.nombre}(
+  select{empleados.salario > 70000}(
+    select{empleados.depto == "IT" || empleados.depto == "FIN"}(
+      empleados
+    )
+  )
+);
+
+
+// 13. Operador custom complejo
+DEFINE empleados_dept_con_proyecto(emps, projs, deptos) = 
+  project{emps.nombre}(
+    select{emps.depto == projs.depto && emps.depto == deptos.codigo}(
+      cartesian_product(
+        cartesian_product(emps, projs),
+        deptos
+      )
+    )
+  );
+
+empleados_dept_con_proyecto(empleados, proyectos, departamentos);

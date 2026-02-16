@@ -1,0 +1,146 @@
+// ============================================================
+// 05_edge_cases.ra
+// Tests de casos borde
+// ============================================================
+
+// ---- RELACIONES VACÍAS ----
+
+CREATE vacia      {nombre STRING, edad INT};
+CREATE no_vacia   {nombre STRING, edad INT};
+
+INSERT no_vacia (no_vacia.nombre, no_vacia.edad) {
+  ("Ana", 20),
+  ("Bob", 22)
+};
+
+// Operaciones sobre relación vacía
+select{vacia.edad > 18}(vacia);
+project{vacia.nombre}(vacia);
+union(vacia, no_vacia);
+union(no_vacia, vacia);
+difference(vacia, no_vacia);
+difference(no_vacia, vacia);
+
+// Producto cartesiano con relación vacía
+CREATE aux {codigo INT};
+cartesian_product(vacia, aux);
+cartesian_product(aux, vacia);
+
+
+// ---- RELACIONES CON UN SOLO ATRIBUTO ----
+
+CREATE ids    {id INT};
+CREATE otros  {id INT};
+
+INSERT ids (ids.id) {
+  (1),
+  (2),
+  (3)
+};
+
+INSERT otros (otros.id) {
+  (2),
+  (3),
+  (4)
+};
+
+union(ids, otros);
+difference(ids, otros);
+interseccion(ids, otros);
+
+// Proyección de un solo atributo (identidad)
+project{ids.id}(ids);
+
+
+// ---- RELACIONES CON UNA SOLA TUPLA ----
+
+CREATE unitaria {nombre STRING, valor INT};
+CREATE otra_unitaria {nombre STRING, valor INT};
+
+INSERT unitaria (unitaria.nombre, unitaria.valor) {
+  ("solo", 1)
+};
+
+INSERT otra_unitaria (otra_unitaria.nombre, otra_unitaria.valor) {
+  ("solo", 1)
+};
+
+// Diferencia de iguales: vacío
+difference(unitaria, otra_unitaria);
+
+// Unión de iguales: misma relación
+union(unitaria, otra_unitaria);
+
+
+// ---- PREDICADOS EN CASOS BORDE ----
+
+CREATE nums {n INT};
+
+INSERT nums (nums.n) {
+  (0),
+  (1),
+  (-1),
+  (100)
+};
+
+// Selección que devuelve todo
+select{True}(nums);
+
+// Selección que devuelve vacío
+select{False}(nums);
+
+// Selección con valor igual
+select{nums.n == 0}(nums);
+
+// Selección con valor negativo
+select{nums.n < 0}(nums);
+
+
+// ---- STRINGS EN CASOS BORDE ----
+
+CREATE textos {s STRING};
+
+INSERT textos (textos.s) {
+  (""),
+  ("hola"),
+  ("HOLA"),
+  ("con espacios")
+};
+
+// Selección por string vacío
+select{textos.s == ""}(textos);
+
+// Selección por string exacto
+select{textos.s == "hola"}(textos);
+
+// ---- DOUBLES EN CASOS BORDE ----
+
+CREATE decimales {d DOUBLE};
+
+INSERT decimales (decimales.d) {
+  (0.0),
+  (1.5),
+  (3.14),
+  (-2.7)
+};
+
+select{decimales.d > 0.0}(decimales);
+select{decimales.d == 0.0}(decimales);
+select{decimales.d < 0.0}(decimales);
+
+
+// ---- DEFINIR OPERADORES QUE YA EXISTEN ----
+DEFINE interseccion(x, y) = difference(x, difference(x, y));
+
+// Redefinir operador (sobreescribe el anterior)
+DEFINE interseccion(x, y) = difference(x, difference(x, y));
+
+interseccion(ids, otros);
+
+
+// ---- CREATE AS QUERY ----
+
+// Crear relación desde una query
+CREATE mayores_de_20 AS select{no_vacia.edad > 20}(no_vacia);
+
+mayores_de_20;

@@ -1,0 +1,115 @@
+// ============================================================
+// 08_ddl_and_remove.ra
+// Tests de DDL (CREATE, DROP) y REMOVE
+// ============================================================
+
+CREATE productos {codigo STRING, nombre STRING, precio DOUBLE, stock INT};
+
+INSERT productos (productos.codigo, productos.nombre, productos.precio, productos.stock) {
+  ("P001", "Laptop",  999.99, 10),
+  ("P002", "Mouse",    29.99, 50),
+  ("P003", "Teclado",  49.99, 30),
+  ("P004", "Monitor", 399.99,  5),
+  ("P005", "Auricular", 79.99, 20)
+};
+
+// Ver estado inicial
+productos;
+
+
+// ---- REMOVE ----
+
+// Eliminar productos sin stock (stock == 0) - ninguno en este caso
+REMOVE productos productos.stock == 0;
+
+productos;
+
+
+// Eliminar producto específico
+REMOVE productos productos.codigo == "P005";
+
+productos;
+
+
+// Eliminar productos baratos (precio < 50)
+REMOVE productos productos.precio < 50.0;
+
+productos;
+
+
+// Eliminar todo (predicado True)
+REMOVE productos True;
+
+// Debería estar vacía
+productos;
+
+
+// ---- RE-INSERT después de REMOVE ----
+
+INSERT productos (productos.codigo, productos.nombre, productos.precio, productos.stock) {
+  ("P001", "Laptop",  999.99, 10),
+  ("P002", "Mouse",    29.99, 50)
+};
+
+productos;
+
+
+// ---- DROP ----
+
+// Crear relación auxiliar y dropearla
+CREATE auxiliar {x INT, y INT};
+
+INSERT auxiliar (auxiliar.x, auxiliar.y) {
+  (1, 2),
+  (3, 4)
+};
+
+auxiliar;
+
+DROP auxiliar;
+
+// auxiliar ya no existe, la siguiente línea debería dar error si se ejecuta:
+// auxiliar;
+
+
+// ---- CREATE AS QUERY ----
+
+// Crear desde query simple
+CREATE productos_caros AS select{productos.precio > 100.0}(productos);
+
+productos_caros;
+
+
+// Crear desde query compuesta
+CREATE productos_baratos AS select{productos.precio < 100.0}(productos);
+
+productos_baratos;
+
+
+// Unión de las dos relaciones creadas
+union(productos_caros, productos_baratos);
+
+
+// ---- DDL SOBRE RELACIONES VACÍAS ----
+
+CREATE nueva_vacia {a INT, b STRING};
+
+// Insertar en relación vacía
+INSERT nueva_vacia (nueva_vacia.a, nueva_vacia.b) {
+  (1, "hola"),
+  (2, "mundo")
+};
+
+nueva_vacia;
+
+// Remover todo
+REMOVE nueva_vacia True;
+
+nueva_vacia;
+
+// Volver a insertar
+INSERT nueva_vacia (nueva_vacia.a, nueva_vacia.b) {
+  (3, "nuevo")
+};
+
+nueva_vacia;

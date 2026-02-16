@@ -1,0 +1,94 @@
+// ============================================================
+// 03_cartesian_and_composition.ra
+// Tests de producto cartesiano y consultas compuestas
+// ============================================================
+
+CREATE alumnos   {nombre STRING, curso STRING};
+CREATE materias  {codigo STRING, creditos INT};
+CREATE docentes  {nombre STRING, materia STRING};
+
+INSERT alumnos (alumnos.nombre, alumnos.curso) {
+  ("Ana",   "MAT01"),
+  ("Bob",   "INF01"),
+  ("Clara", "MAT01")
+};
+
+INSERT materias (materias.codigo, materias.creditos) {
+  ("MAT01", 6),
+  ("INF01", 4),
+  ("FIS01", 5)
+};
+
+INSERT docentes (docentes.nombre, docentes.materia) {
+  ("Felipe", "MAT01"),
+  ("Greta",  "INF01"),
+  ("Hugo",   "FIS01")
+};
+
+// ---- PRODUCTO CARTESIANO ----
+
+// Producto cartesiano simple
+cartesian_product(alumnos, materias);
+
+// Producto cartesiano con selección (simula un join)
+select{alumnos.curso == materias.codigo}(
+  cartesian_product(alumnos, materias)
+);
+
+// Producto cartesiano con proyección
+project{alumnos.nombre, materias.creditos}(
+  select{alumnos.curso == materias.codigo}(
+    cartesian_product(alumnos, materias)
+  )
+);
+
+// Join entre alumnos y docentes a través de materia
+select{alumnos.curso == docentes.materia}(
+  cartesian_product(alumnos, docentes)
+);
+
+// Join triple: alumnos, materias y docentes
+select{alumnos.curso == materias.codigo && alumnos.curso == docentes.materia}(
+  cartesian_product(
+    cartesian_product(alumnos, materias),
+    docentes
+  )
+);
+
+// ---- CONSULTAS COMPUESTAS ----
+
+// Alumnos de MAT01 con sus creditos
+project{alumnos.nombre, materias.creditos}(
+  select{alumnos.curso == "MAT01" && materias.codigo == "MAT01"}(
+    cartesian_product(alumnos, materias)
+  )
+);
+
+// Docentes de materias con más de 4 créditos
+project{docentes.nombre}(
+  select{materias.creditos > 4 && docentes.materia == materias.codigo}(
+    cartesian_product(docentes, materias)
+  )
+);
+
+// Alumnos que NO están en INF01
+difference(
+  project{alumnos.nombre}(alumnos),
+  project{alumnos.nombre}(select{alumnos.curso == "INF01"}(alumnos))
+);
+
+// ---- PRODUCTO CARTESIANO CON RENAME ----
+
+// Mismo esquema: necesita rename antes del producto cartesiano
+cartesian_product(
+  rename{a}(alumnos),
+  rename{b}(alumnos)
+);
+
+// Selección sobre producto renombrado
+select{a.curso == b.curso && a.nombre != b.nombre}(
+  cartesian_product(
+    rename{a}(alumnos),
+    rename{b}(alumnos)
+  )
+);
