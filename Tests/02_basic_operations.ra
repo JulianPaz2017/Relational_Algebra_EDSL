@@ -1,5 +1,5 @@
 // ============================================================
-// 02_basic_ops.ra
+// 02_basic_operations.ar
 // Tests de operaciones básicas del AR
 // ============================================================
 
@@ -16,7 +16,8 @@ INSERT personas (personas.nombre, personas.edad, personas.ciudad) {
 
 INSERT mayores (mayores.nombre, mayores.edad, mayores.ciudad) {
   ("Bob",   22, "CABA"),
-  ("David", 25, "Rosario")
+  ("David", 25, "Rosario"),
+  ("Juan", 30, "Casilda")
 };
 
 // ---- SELECT ----
@@ -42,8 +43,11 @@ select{True}(personas);
 // Predicado siempre falso
 select{False}(personas);
 
-// Predicado comparando dos atributos de la misma tupla
-select{personas.edad == personas.edad}(personas);
+// Comparación de atributos
+select{personas.edad == 20}(personas);
+
+// Predicados complejos anidados
+select{(personas.edad > 18 && personas.ciudad == "Rosario") || personas.nombre == "Elena"}(personas);
 
 
 // ---- PROJECT ----
@@ -66,6 +70,10 @@ rename{alumnos}(personas);
 // Renombrar y proyectar
 project{alumnos.nombre}(rename{alumnos}(personas));
 
+// Renombrar y seleccionar
+select{alumnos.edad > 20}(rename{alumnos}(personas));
+
+
 // ---- UNION ----
 
 // Unión de relaciones con mismo esquema
@@ -73,6 +81,13 @@ union(personas, mayores);
 
 // Unión consigo misma (idempotente)
 union(personas, personas);
+
+// Unión después de filtrar
+union(
+  select{personas.edad > 20}(personas),
+  select{personas.ciudad == "CABA"}(personas)
+);
+
 
 // ---- DIFFERENCE ----
 
@@ -84,3 +99,31 @@ difference(personas, personas);
 
 // Diferencia inversa
 difference(mayores, personas);
+
+// Diferencia después de select
+difference(
+  select{personas.edad > 18}(personas),
+  select{personas.edad > 21}(personas)
+);
+
+
+// ---- RENAME ATTRIBUTES ----
+
+// Renombrar "nombre" a "name"
+renameA{personas.nombre = personas.name}(personas);
+
+// Traducir todos los atributos al inglés
+renameA{
+  personas.nombre = personas.name,
+  personas.edad = personas.age,
+  personas.ciudad = personas.city
+}(personas);
+
+renameA{personas.nombre = personas.name, personas.edad = personas.age}(
+  select{personas.edad > 18}(personas)
+);
+
+union(
+  renameA{personas.nombre = personas.person_name}(personas),
+  renameA{mayores.nombre = mayores.person_name}(mayores)
+);

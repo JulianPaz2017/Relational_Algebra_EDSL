@@ -1,5 +1,5 @@
 // ============================================================
-// 05_edge_cases.ra
+// 06_edge_cases.ar
 // Tests de casos borde
 // ============================================================
 
@@ -43,6 +43,9 @@ INSERT otros (otros.id) {
   (3),
   (4)
 };
+
+// Definir intersección si no está definida
+DEFINE interseccion(x, y) = difference(x, difference(x, y));
 
 union(ids, otros);
 difference(ids, otros);
@@ -89,11 +92,14 @@ select{True}(nums);
 // Selección que devuelve vacío
 select{False}(nums);
 
-// Selección con valor igual
+// Selección con valor igual a cero
 select{nums.n == 0}(nums);
 
 // Selección con valor negativo
 select{nums.n < 0}(nums);
+
+// Selección con múltiples condiciones que siempre son falsas
+select{nums.n > 100 && nums.n < 0}(nums);
 
 
 // ---- STRINGS EN CASOS BORDE ----
@@ -113,6 +119,10 @@ select{textos.s == ""}(textos);
 // Selección por string exacto
 select{textos.s == "hola"}(textos);
 
+// Strings con espacios
+select{textos.s == "con espacios"}(textos);
+
+
 // ---- DOUBLES EN CASOS BORDE ----
 
 CREATE decimales {d DOUBLE};
@@ -127,6 +137,35 @@ INSERT decimales (decimales.d) {
 select{decimales.d > 0.0}(decimales);
 select{decimales.d == 0.0}(decimales);
 select{decimales.d < 0.0}(decimales);
+select{decimales.d >= 1.5 && decimales.d <= 3.14}(decimales);
+
+
+// ---- CREATE AS QUERY ----
+
+// Crear relación desde una query
+CREATE mayores_de_20 AS select{no_vacia.edad > 20}(no_vacia);
+
+mayores_de_20;
+
+// Crear desde query compuesta
+CREATE proyectados AS project{no_vacia.nombre}(
+  select{no_vacia.edad > 18}(no_vacia)
+);
+
+proyectados;
+
+
+// ---- RENOMBRAR SOBRE RESULTADOS INTERMEDIOS ----
+
+// Rename sobre resultado de select (sin nombre de relación)
+rename{filtrados}(
+  select{no_vacia.edad > 18}(no_vacia)
+);
+
+// RenameA sobre resultado de union
+renameA{no_vacia.nombre = no_vacia.name}(
+  union(no_vacia, no_vacia)
+);
 
 
 // ---- DEFINIR OPERADORES QUE YA EXISTEN ----
@@ -138,9 +177,8 @@ DEFINE interseccion(x, y) = difference(x, difference(x, y));
 interseccion(ids, otros);
 
 
-// ---- CREATE AS QUERY ----
+// ---- OPERADORES CON RELACIONES VACÍAS ----
 
-// Crear relación desde una query
-CREATE mayores_de_20 AS select{no_vacia.edad > 20}(no_vacia);
+DEFINE filtrar_vacia(rel) = select{rel.edad > 100}(rel);
 
-mayores_de_20;
+filtrar_vacia(no_vacia);

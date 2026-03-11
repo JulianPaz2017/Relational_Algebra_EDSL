@@ -5,6 +5,7 @@ import           Text.Parsec.Token
 import           Text.Parsec.Language                  ( emptyDef )
 import qualified Data.Map                       as Map ( fromList )
 import qualified Data.Set                       as Set
+import           Data.List
 import           Common
 
 
@@ -48,25 +49,21 @@ lis = makeTokenParser
 parseRelationName :: Parser RelationName
 parseRelationName = identifier lis
 
-
-parseAttributeName :: Parser AttrName
+parseAttributeName :: Parser AttributeName
 parseAttributeName = identifier lis
-
 
 parseOperatorName :: Parser OperatorName
 parseOperatorName = identifier lis
 
-parseAttribute :: Parser AttrKey
+parseAttribute :: Parser AttributeKey
 parseAttribute = 
   do relationName  <- parseRelationName
      _             <- symbol lis "."
      attributeName <- parseAttributeName
      return (relationName, attributeName) 
 
-parseAttributes :: Parser [AttrKey]
+parseAttributes :: Parser [AttributeKey]
 parseAttributes = parseAttribute `sepBy` (symbol lis ",")
-    
-
 
 parseValue :: Parser Value
 parseValue = try parseDoubleValue <|> try parseIntValue <|> parseStringValue
@@ -76,6 +73,7 @@ parseValue = try parseDoubleValue <|> try parseIntValue <|> parseStringValue
       do i <- integer lis
          return (IntValue (fromIntegral i))
 
+
     parseDoubleValue :: Parser Value
     parseDoubleValue = 
       do s <- optionMaybe (reservedOp lis "-")
@@ -83,7 +81,7 @@ parseValue = try parseDoubleValue <|> try parseIntValue <|> parseStringValue
          case s of
            Nothing -> return (DoubleValue d)
            Just _  -> return (DoubleValue (-d))
-         
+
 
     parseStringValue :: Parser Value
     parseStringValue = 
@@ -99,12 +97,14 @@ parseBool :: Parser Predicate
 parseBool = try parseTrue <|> parseFalse
   where
     parseTrue :: Parser Predicate
-    parseTrue = do _ <- reserved lis "True"
-                   return (PBool True)
+    parseTrue = 
+      do _ <- reserved lis "True"
+         return (PBool True)
 
     parseFalse :: Parser Predicate
-    parseFalse = do _ <- reserved lis "False"
-                    return (PBool False)
+    parseFalse = 
+      do _ <- reserved lis "False"
+         return (PBool False)
 
 
 parseComparisonOperator :: Parser ComparisonOperator
@@ -155,10 +155,10 @@ parseComparisonOperator =
 
 parseComparison :: Parser Predicate
 parseComparison = 
-  do atom  <- try parseConstantValue <|> parseReference
-     cmpOp <- parseComparisonOperator
-     atom' <- try parseConstantValue <|> parseReference
-     return (PCmp cmpOp atom atom')
+  do atom                <- try parseConstantValue <|> parseReference
+     comparisionOperator <- parseComparisonOperator
+     atom'               <- try parseConstantValue <|> parseReference
+     return (PCmp comparisionOperator atom atom')
   where
     parseConstantValue :: Parser PredicateAtom
     parseConstantValue = 
@@ -167,9 +167,7 @@ parseComparison =
 
     parseReference :: Parser PredicateAtom
     parseReference = 
-      do relationName  <- parseRelationName
-         _             <- symbol lis "."
-         attributeName <- parseAttributeName
+      do (relationName, attributeName)  <- parseAttribute
          return (AttributeReference relationName attributeName)
 
 
@@ -265,14 +263,9 @@ parseSchema relationName =
          return DoubleDomain
 
     parseDomain :: Parser Domain
-    parseDomain = 
-      try parseDInt 
-      <|> 
-      try parseDString 
-      <|> 
-      parseDDouble
+    parseDomain = try parseDInt <|> try parseDString <|> parseDDouble
 
-    parseSchema' :: RelationName -> Parser (AttrKey, Domain)
+    parseSchema' :: RelationName -> Parser (AttributeKey, Domain)
     parseSchema' rName = 
       do attributeName <- parseAttributeName
          domain        <- parseDomain
@@ -330,9 +323,9 @@ parseInsert =
   
   where
     auxilarMessage :: String
-    auxilarMessage = "Error al parser las tuplas. Inconsistencia en la cantidad de valores y atributos ingresados\n"
+    auxilarMessage = "Error al parsear las tuplas. Inconsistencia en la cantidad de valores y atributos ingresados\n"
 
-    parseTuple :: [AttrKey] -> Parser Tuple
+    parseTuple :: [AttributeKey] -> Parser Tuple
     parseTuple attrs = 
       do values <- parseValue `sepBy` (symbol lis ",")
          if 
@@ -342,7 +335,7 @@ parseInsert =
          else 
            fail auxilarMessage  
 
-    parseTuples :: [AttrKey] -> Parser [Tuple]
+    parseTuples :: [AttributeKey] -> Parser [Tuple]
     parseTuples attrs = 
       do _      <- symbol lis "{"
          tuples <- (parens lis (parseTuple attrs)) `sepBy` (symbol lis ",")
@@ -371,9 +364,14 @@ parseDefine =
   do _            <- reserved lis "DEFINE"
      operatorName <- parseOperatorName
      arguments    <- parseOperatorArguments
-     _            <- symbol lis "="
-     query        <- parseQuery arguments
-     return (DefineOperator operatorName (CustomOperator (length arguments) arguments query))
+     if 
+       (length arguments /= length (nub arguments))
+     then
+       fail ("Error: El operador '" ++ operatorName ++ "' tiene parámetros repetidos\n")
+     else
+       do _            <- symbol lis "="
+          query        <- parseQuery arguments
+          return (DefineOperator operatorName (CustomOperator (length arguments) arguments query))
   
   where
     parseArgumentName :: Parser VariableName
@@ -404,75 +402,43 @@ parseOperation :: [VariableName] -> Parser Query
 parseOperation variableNames = 
   do operatorName <- parseOperatorName
      case operatorName of
-       "select"            -> parseSelect variableNames
-       "project"           -> parseProject variableNames
-       "rename"            -> parseRename variableNames
-       "renameA"           -> parseRenameA variableNames
-       "union"             -> parens lis (parseUnion variableNames)
-       "difference"        -> parens lis (parseDifference variableNames)
-       "cartesian_product" -> parens lis (parseCartesianProduct variableNames)
+       "select"            -> parseUnary Select  parsePredicate    variableNames
+       "project"           -> parseUnary Project parseAttributes   variableNames
+       "rename"            -> parseUnary Rename  parseRelationName variableNames
+       "renameA"           -> parseUnary RenameA parseRenameA      variableNames
+       "union"             -> parens lis (parseBinary Union            variableNames)
+       "difference"        -> parens lis (parseBinary Difference       variableNames)
+       "cartesian_product" -> parens lis (parseBinary CartesianProduct variableNames)
        _                   -> parens lis (parseCustomOperator variableNames operatorName)
 
   where
-    parseSelect :: [VariableName] -> Parser Query
-    parseSelect vn = 
-      do _         <- symbol lis "{"
-         predicate <- parsePredicate 
-         _         <- symbol lis "}"
-         relation  <- parens lis (parseQuery vn)
-         return (Select predicate relation)
-
-    parseProject :: [VariableName] -> Parser Query
-    parseProject vn = 
-      do _          <- symbol lis "{"
-         attributes <- parseAttributes
-         _          <- symbol lis "}"
-         relation   <- parens lis (parseQuery vn)
-         return (Project attributes relation)
-
-    parseRename :: [VariableName] -> Parser Query
-    parseRename vn = 
-      do _            <- symbol lis "{"
-         relationName <- parseRelationName
-         _            <- symbol lis "}"
-         relation     <- parens lis (parseQuery vn)
-         return (Rename relationName relation)
-    
-    parseRenameA' :: Parser (AttrKey, AttrKey)
+    parseRenameA' :: Parser (AttributeKey, AttributeKey)
     parseRenameA' = 
-      do attrKey  <- parseAttribute
-         _        <- symbol lis "="
-         attrKey' <- parseAttribute
-         return (attrKey, attrKey')
+      do attributeKey  <- parseAttribute
+         _             <- symbol lis "="
+         attributeKey' <- parseAttribute
+         return (attributeKey, attributeKey')
 
-    parseRenameA :: [VariableName] -> Parser Query
-    parseRenameA vn = 
-      do _            <- symbol lis "{"
-         reNamings    <- parseRenameA' `sepBy` (symbol lis ",")
-         _            <- symbol lis "}"
-         relation     <- parens lis (parseQuery vn)
-         return (RenameA reNamings relation)
+    parseRenameA :: Parser AttributeKeyMap
+    parseRenameA =
+      do reNamings <- parseRenameA' `sepBy` (symbol lis ",")
+         return (Map.fromList reNamings)
 
-    parseUnion :: [VariableName] -> Parser Query
-    parseUnion vn = 
+    parseUnary :: (a -> Query -> Query) -> Parser a -> [VariableName] -> Parser Query
+    parseUnary queryConstructor p vn =
+      do _           <- symbol lis "{"
+         parseResult <- p
+         _           <- symbol lis "}"
+         query       <- parens lis (parseQuery vn)
+         return (queryConstructor parseResult query)
+
+
+    parseBinary :: BinaryOperator -> [VariableName] -> Parser Query
+    parseBinary binaryOPerator vn = 
       do relation  <- parseQuery vn
          _         <- symbol lis ","
          relation' <- parseQuery vn
-         return (Binary Union relation relation')
-
-    parseDifference :: [VariableName] -> Parser Query
-    parseDifference vn = 
-      do relation  <- parseQuery vn
-         _         <- symbol lis ","
-         relation' <- parseQuery vn
-         return (Binary Difference relation relation')
-    
-    parseCartesianProduct :: [VariableName] -> Parser Query
-    parseCartesianProduct vn = 
-      do relation  <- parseQuery vn
-         _         <- symbol lis ","
-         relation' <- parseQuery vn
-         return (Binary CartesianProduct relation relation')
+         return (Binary binaryOPerator relation relation')
 
     parseCustomOperator :: [VariableName] -> OperatorName -> Parser Query
     parseCustomOperator vn opName = 

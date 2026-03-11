@@ -13,21 +13,50 @@ module Common where
     fmap f (Eval i)  = Eval (f i)
 
 
+
   -------------------------------------------
   -- RESULTADOS DE PARSEAR 
   -------------------------------------------
   data ParseResult a = Failed String | Ok a deriving Show
 
 
+
+  -------------------------------------------
+  -- RESULTADOS DE EVALUAR
+  -------------------------------------------
+  data EvalError =  UndefinedRelation      RelationName
+                  | UndefinedAttribute     AttributeKey
+                  | UndefinedOperator      OperatorName
+                  | ArityMismatch          OperatorName Int    Int
+                  | UnboundVariable        VariableName
+                  | IncompatibleSchemas 
+                  | SameRelationName       RelationName 
+                  | SharedAttributes       AttributeKey
+                  | DuplicateAttributeName AttributeKey
+                  | TypeMismatch           Domain       Domain 
+
+
+  data ErrorContext =  InQuery
+                     | InPredicate        Predicate
+                     | InRenameAttributes
+                     | InProyect
+                     | InSubstitution
+
+  data ContextualError = ContextualError Query ErrorContext EvalError
+
+  type EvalResult a = Either ContextualError a
+
+
+
   -------------------------------------------
   -- TIPOS COMPARTIDOS
   -------------------------------------------
   -- Sinonimos de tipos
-  type RelationName = String                   -- Nombre de las relaciones
-  type OperatorName = String                   -- Nombre de los operadores
-  type AttrName     = String                   -- Nombre de los atributos
-  type VariableName = String                   -- Nombre para las variables de los operadores custom
-  type AttrKey      = (RelationName, AttrName) -- Claves para el esquema
+  type RelationName  = String                        -- Nombre de las relaciones
+  type OperatorName  = String                        -- Nombre de los operadores
+  type AttributeName = String                        -- Nombre de los atributos
+  type VariableName  = String                        -- Nombre para las variables de los operadores custom
+  type AttributeKey  = (RelationName, AttributeName) -- Claves para el esquema
 
 
 
@@ -39,7 +68,7 @@ module Common where
   type OperatorsEnvironment = Map.Map OperatorName CustomOperator 
 
   data State = S
-    { lfile   :: String
+    { lfile :: FileName
     ,     -- Ultimo archivo cargado (para hacer "reload")
     rs :: RelationsEnvironment  
           -- Entorno con las relaciones definidas
@@ -83,7 +112,7 @@ module Common where
 
   -- Definición de una átomo en predicados
   data PredicateAtom =  ConstantValue       Value
-                      | AttributeReference  RelationName AttrName
+                      | AttributeReference  RelationName AttributeName
                       deriving (Show)
 
 
@@ -96,15 +125,18 @@ module Common where
                   deriving (Show)
 
 
+  -- Sinónimo para el tipo Map.Map AttributeKey AttributeKey
+  type AttributeKeyMap = Map.Map AttributeKey AttributeKey 
+
   -- Definición de una consulta del álgebra relacional
   data Query =  Atomic   RelationName
               | Variable VariableName
-              | Rename   RelationName         Query
-              | Select   Predicate            Query
-              | Binary   BinaryOperator       Query Query
-              | Project  [AttrKey]            Query
-              | RenameA  [(AttrKey, AttrKey)] Query
-              | Custom   OperatorName         [Query]
+              | Rename   RelationName    Query
+              | Select   Predicate       Query
+              | Binary   BinaryOperator  Query Query
+              | Project  [AttributeKey]  Query
+              | RenameA  AttributeKeyMap Query
+              | Custom   OperatorName    [Query]
               deriving (Show)
 
 
@@ -130,10 +162,10 @@ module Common where
 
   -- Sinonimos de tipos
   -- Esquema
-  type Schema    = [(AttrKey, Domain)]
+  type Schema    = [(AttributeKey, Domain)]
 
   -- Tuplas
-  type Tuple     = Map.Map (RelationName, AttrName) Value 
+  type Tuple     = Map.Map (RelationName, AttributeName) Value 
 
   -- Instancia
   type Instance  = Set.Set Tuple

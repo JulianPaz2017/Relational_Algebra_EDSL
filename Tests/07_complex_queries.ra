@@ -1,5 +1,5 @@
 // ============================================================
-// 07_complex_queries.ra
+// 07_complex_queries.ar
 // Consultas complejas que combinan múltiples operaciones
 // ============================================================
 
@@ -35,9 +35,6 @@ INSERT proyectos (proyectos.nombre, proyectos.depto, proyectos.costo) {
 
 DEFINE interseccion(x, y) = difference(x, difference(x, y));
 
-DEFINE join(x, y, attr) = select{x.attr == y.attr}(cartesian_product(x, y));
-
-
 // ---- CONSULTAS COMPLEJAS ----
 
 // 1. Empleados del departamento IT con salario mayor a 75000
@@ -71,13 +68,6 @@ project{departamentos.codigo}(
   )
 );
 
-CREATE aaaaa AS project{departamentos.codigo}(departamentos);
-
-CREATE aaaaaa AS project{departamentos.codigo}(
-    select{departamentos.codigo == proyectos.depto}(
-      cartesian_product(departamentos, proyectos)
-    )
-  );
 
 // 6. Departamentos SIN proyectos
 difference(
@@ -96,9 +86,8 @@ select{empleados.depto == proyectos.depto}(
 );
 
 
-// 8. Empleados con salario mayor al promedio de su departamento
-// (simulado: empleados de IT con salario > 80000)
-select{empleados.salario > 80000 && empleados.depto == "IT"}(empleados);
+// 8. Empleados con salario mayor a 80000
+select{empleados.salario > 80000}(empleados);
 
 
 // 9. Pares de empleados del mismo departamento
@@ -127,7 +116,7 @@ CREATE empleados_fin AS select{empleados.depto == "FIN"}(empleados);
 // Unión de empleados IT y FIN
 union(empleados_it, empleados_fin);
 
-// Diferencia: IT pero no FIN (siempre todos los de IT)
+// Diferencia: IT pero no FIN
 difference(empleados_it, empleados_fin);
 
 
@@ -153,3 +142,44 @@ DEFINE empleados_dept_con_proyecto(emps, projs, deptos) =
   );
 
 empleados_dept_con_proyecto(empleados, proyectos, departamentos);
+
+
+// 14. Operador con renameA
+DEFINE empleados_renombrados(emps) = 
+  renameA{
+    emps.nombre = emps.fullname,
+    emps.depto = emps.department
+  }(emps);
+
+empleados_renombrados(empleados);
+
+
+// 15. Join triple complejo
+project{empleados.nombre, departamentos.nombre, proyectos.nombre}(
+  select{
+    empleados.depto == departamentos.codigo &&
+    empleados.depto == proyectos.depto &&
+    proyectos.costo > 100000
+  }(
+    cartesian_product(
+      cartesian_product(empleados, departamentos),
+      proyectos
+    )
+  )
+);
+
+
+// 16. Consulta con todos los operadores combinados
+project{emp.fullname, dept.department_name}(
+  renameA{
+    emp.nombre = emp.fullname,
+    dept.nombre = dept.department_name
+  }(
+    select{emp.depto == dept.codigo && emp.salario > 70000}(
+      cartesian_product(
+        rename{emp}(empleados),
+        rename{dept}(departamentos)
+      )
+    )
+  )
+);

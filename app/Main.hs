@@ -264,7 +264,7 @@ handleEDLSStatements state@(S lastFile relations operators) (edlsCommand:cs) =
     ((CreateRelation relationName (Right query)), line) -> 
       case evalQuery state query of
         Left err -> 
-          do lift $ putStrLn ("Error en la línea " ++ (show line) ++ ": Consulta inválida. " ++ show err ++ "\n")
+          do lift $ putStrLn ("Error en la línea " ++ (show line) ++ ": Consulta inválida. " ++ (render (ppError err)) ++ "\n")
              handleEDLSStatements state cs
         
         Right relation ->
@@ -308,7 +308,7 @@ handleEDLSStatements state@(S lastFile relations operators) (edlsCommand:cs) =
         Just r@(Relation rName rSchema rInstance rArity) ->
           case (evalPredicate r predicate) of 
             Left err -> 
-              do lift $ putStrLn ("Error en la línea " ++ (show line) ++ ": " ++ err)
+              do lift $ putStrLn ("Error en la línea " ++ (show line) ++ ": Predicado inválido." ++ (render (ppEvalError err)))
                  handleEDLSStatements state cs
 
             Right predicateFunction ->
@@ -340,7 +340,7 @@ handleEDLSStatements state@(S lastFile relations operators) (edlsCommand:cs) =
 
     ((QueryStatement query), line) ->
       do case (evalQuery state query) of
-           Left err       -> lift $ putStrLn ("Error en la línea " ++ (show line) ++ ": Consulta inválida. " ++ err ++ "\n")              
+           Left err       -> lift $ putStrLn ("Error en la línea " ++ (show line) ++ ": " ++ (render (ppError err)) ++ "\n")              
            Right relation -> lift $ putStrLn (render (ppRelation relation))
          handleEDLSStatements state cs
         

@@ -1,16 +1,16 @@
 // ============================================================
-// 08_ddl_and_remove.ra
+// 08_ddl_and_remove.ar
 // Tests de DDL (CREATE, DROP) y REMOVE
 // ============================================================
 
-CREATE productos {codigo STRING, nombre STRING, precio DOUBLE, stock INT};
+CREATE productos {codigo STRING, nombre STRING, precio INT, stock INT};
 
 INSERT productos (productos.codigo, productos.nombre, productos.precio, productos.stock) {
-  ("P001", "Laptop",  999.99, 10),
-  ("P002", "Mouse",    29.99, 50),
-  ("P003", "Teclado",  49.99, 30),
-  ("P004", "Monitor", 399.99,  5),
-  ("P005", "Auricular", 79.99, 20)
+  ("P001", "Laptop",  999, 10),
+  ("P002", "Mouse",    29, 50),
+  ("P003", "Teclado",  49, 30),
+  ("P004", "Monitor", 399,  5),
+  ("P005", "Auricular", 79, 20)
 };
 
 // Ver estado inicial
@@ -32,7 +32,23 @@ productos;
 
 
 // Eliminar productos baratos (precio < 50)
-REMOVE productos productos.precio < 50.0;
+REMOVE productos productos.precio < 50;
+
+productos;
+
+
+// Eliminar con predicado compuesto
+REMOVE productos productos.precio > 500 && productos.stock < 10;
+
+productos;
+
+
+// ---- RE-INSERT después de REMOVE ----
+
+INSERT productos (productos.codigo, productos.nombre, productos.precio, productos.stock) {
+  ("P001", "Laptop",  999, 10),
+  ("P002", "Mouse",    29, 50)
+};
 
 productos;
 
@@ -41,16 +57,6 @@ productos;
 REMOVE productos True;
 
 // Debería estar vacía
-productos;
-
-
-// ---- RE-INSERT después de REMOVE ----
-
-INSERT productos (productos.codigo, productos.nombre, productos.precio, productos.stock) {
-  ("P001", "Laptop",  999.99, 10),
-  ("P002", "Mouse",    29.99, 50)
-};
-
 productos;
 
 
@@ -68,26 +74,42 @@ auxiliar;
 
 DROP auxiliar;
 
-// auxiliar ya no existe, la siguiente línea debería dar error si se ejecuta:
-// auxiliar;
-
 
 // ---- CREATE AS QUERY ----
 
+// Re-insertar productos
+INSERT productos (productos.codigo, productos.nombre, productos.precio, productos.stock) {
+  ("P001", "Laptop",  999, 10),
+  ("P002", "Mouse",    29, 50),
+  ("P003", "Teclado",  49, 30)
+};
+
 // Crear desde query simple
-CREATE productos_caros AS select{productos.precio > 100.0}(productos);
+CREATE productos_caros AS select{productos.precio > 100}(productos);
 
 productos_caros;
 
 
 // Crear desde query compuesta
-CREATE productos_baratos AS select{productos.precio < 100.0}(productos);
+CREATE productos_baratos AS select{productos.precio < 100}(productos);
 
 productos_baratos;
 
 
 // Unión de las dos relaciones creadas
 union(productos_caros, productos_baratos);
+
+
+// Crear con proyección
+CREATE nombres_productos AS project{productos.nombre}(productos);
+
+nombres_productos;
+
+
+// Crear con rename
+CREATE items AS rename{items}(productos);
+
+items;
 
 
 // ---- DDL SOBRE RELACIONES VACÍAS ----
@@ -113,3 +135,30 @@ INSERT nueva_vacia (nueva_vacia.a, nueva_vacia.b) {
 };
 
 nueva_vacia;
+
+
+// ---- REMOVE CON PREDICADOS COMPLEJOS ----
+
+CREATE empleados {nombre STRING, edad INT, salario INT};
+
+INSERT empleados (empleados.nombre, empleados.edad, empleados.salario) {
+  ("Ana",   25, 50000),
+  ("Bob",   30, 60000),
+  ("Clara", 22, 45000),
+  ("David", 35, 70000)
+};
+
+// Remover empleados jóvenes con bajo salario
+REMOVE empleados empleados.edad < 30 && empleados.salario < 50000;
+
+empleados;
+
+// Remover empleados con salario exacto
+REMOVE empleados empleados.salario == 60000;
+
+empleados;
+
+// Remover con OR
+REMOVE empleados empleados.edad > 30 || empleados.salario > 65000;
+
+empleados;

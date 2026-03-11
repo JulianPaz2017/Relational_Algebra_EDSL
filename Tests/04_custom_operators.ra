@@ -1,5 +1,5 @@
 // ============================================================
-// 04_custom_operators.ra
+// 04_custom_operators.ar
 // Tests de operadores custom (DEFINE/UNDEFINE)
 // ============================================================
 
@@ -38,7 +38,7 @@ DEFINE interseccion(x, y) = difference(x, difference(x, y));
 // Probar intersección
 interseccion(r, s);
 
-// Intersección con sí misma
+// Intersección con sí misma (idempotente)
 interseccion(r, r);
 
 // Intersección vacía
@@ -52,21 +52,28 @@ diff_simetrica(r, r);
 
 // ---- OPERADORES CON SELECCIÓN ----
 
-// Filtrar por primer atributo mayor a un valor
-DEFINE filtrar_mayores(x, y) = select{x.a > y.a}(cartesian_product(x, rename{y}(x)));
+// Seleccionar tuplas con primer atributo mayor a 3
+DEFINE sel_mayor_tres(rel) = select{rel.a > 3}(rel);
 
-// Seleccionar tuplas con a > 3
-DEFINE sel_mayor_a(x) = select{x.a > 3}(x);
+sel_mayor_tres(r);
+sel_mayor_tres(s);
 
-sel_mayor_a(r);
-sel_mayor_a(s);
+// Operador con múltiples condiciones
+DEFINE filtrar_rango(rel) = select{rel.a > 2 && rel.a < 8}(rel);
+
+filtrar_rango(r);
+filtrar_rango(s);
 
 // ---- OPERADORES CON PROYECCIÓN ----
 
-DEFINE solo_primer_attr(x) = project{x.a}(x);
+DEFINE solo_primer_attr(rel) = project{rel.a}(rel);
 
 solo_primer_attr(r);
 solo_primer_attr(s);
+
+DEFINE ambos_attrs(rel) = project{rel.a, rel.b}(rel);
+
+ambos_attrs(r);
 
 // ---- OPERADORES COMPUESTOS ----
 
@@ -80,6 +87,16 @@ DEFINE diferencia_filtrada(x, y) = select{x.a > 2}(difference(x, y));
 
 diferencia_filtrada(r, s);
 
+// Operador que combina varias operaciones
+DEFINE complejo(x, y) = 
+  project{x.a}(
+    select{x.a > 3}(
+      difference(x, y)
+    )
+  );
+
+complejo(r, s);
+
 // ---- OPERADORES RECURSIVOS ----
 
 // Operador que usa otros operadores custom
@@ -91,10 +108,33 @@ DEFINE elementos_exclusivos(x, y) = union(
 elementos_exclusivos(r, s);
 elementos_exclusivos(r, t);
 
+// Operador que usa intersección
+DEFINE elementos_comunes_mayores(x, y) = 
+  select{x.a > 3}(interseccion(x, y));
+
+elementos_comunes_mayores(r, s);
+
+// ---- OPERADORES CON RENAME ----
+
+DEFINE auto_join(rel) = 
+  cartesian_product(
+    rename{r1}(rel),
+    rename{r2}(rel)
+  );
+
+auto_join(r);
+
 // ---- UNDEFINE ----
 
 // Deshacer operador
 UNDEFINE solo_primer_attr;
+
+// ---- REDEFINIR OPERADOR ----
+
+// Redefinir intersección con otra implementación (misma)
+DEFINE interseccion(x, y) = difference(x, difference(x, y));
+
+interseccion(r, s);
 
 // ---- DROP ----
 

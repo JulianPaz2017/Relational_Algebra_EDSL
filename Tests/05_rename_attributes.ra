@@ -1,0 +1,102 @@
+// ============================================================
+// 05_rename_attributes.ar
+// Tests de renameA (renombrar atributos específicos)
+// ============================================================
+
+CREATE personas {nombre STRING, edad INT, ciudad STRING};
+CREATE productos {codigo STRING, nombre STRING, precio INT};
+
+INSERT personas (personas.nombre, personas.edad, personas.ciudad) {
+  ("Ana",   20, "Rosario"),
+  ("Bob",   22, "CABA"),
+  ("Clara", 19, "Cordoba")
+};
+
+INSERT productos (productos.codigo, productos.nombre, productos.precio) {
+  ("P001", "Laptop",  1000),
+  ("P002", "Mouse",   30),
+  ("P003", "Teclado", 50)
+};
+
+// ---- RENOMBRAR ATRIBUTOS ----
+
+// Renombrar un solo atributo
+renameA{personas.nombre = personas.name}(personas);
+
+// Renombrar múltiples atributos
+renameA{personas.nombre = personas.name, personas.edad = personas.age}(personas);
+
+// Renombrar todos los atributos
+renameA{
+  personas.nombre = personas.fullname,
+  personas.edad = personas.age,
+  personas.ciudad = personas.city
+}(personas);
+
+// ---- RENAME + RENAMEA ----
+
+// Primero renombrar la relación, luego los atributos
+renameA{p.nombre = p.name, p.edad = p.age}(rename{p}(personas));
+
+// ---- RENAMEA CON SELECT ----
+
+// Seleccionar y renombrar atributos
+renameA{personas.nombre = personas.name}(
+  select{personas.edad > 19}(personas)
+);
+
+// ---- RENAMEA CON PROJECT ----
+
+// Proyectar y renombrar
+renameA{personas.nombre = personas.name}(
+  project{personas.nombre, personas.edad}(personas)
+);
+
+// Renombrar antes de proyectar
+project{personas.name, personas.age}(
+  renameA{personas.nombre = personas.name, personas.edad = personas.age}(personas)
+);
+
+// ---- RENAMEA CON PRODUCTO CARTESIANO ----
+
+// Renombrar atributos después de producto cartesiano
+renameA{
+  personas.nombre = personas.person_name,
+  productos.nombre = productos.product_name
+}(
+  cartesian_product(personas, productos)
+);
+
+// ---- RENAMEA EN OPERADORES CUSTOM ----
+
+DEFINE renombrar_a_ingles(rel) = 
+  renameA{
+    rel.nombre = rel.name,
+    rel.edad = rel.age,
+    rel.ciudad = rel.city
+  }(rel);
+
+renombrar_a_ingles(personas);
+
+// Operador que renombra y filtra
+DEFINE mayores_renombrados(rel) = 
+  renameA{rel.nombre = rel.name}(
+    select{rel.edad > 19}(rel)
+  );
+
+mayores_renombrados(personas);
+
+// ---- RENAMEA CON UNION ----
+
+// Renombrar atributos de ambas relaciones antes de la unión
+CREATE personas2 {nombre STRING, edad INT, ciudad STRING};
+
+INSERT personas2 (personas2.nombre, personas2.edad, personas2.ciudad) {
+  ("David", 25, "Mendoza"),
+  ("Elena", 18, "Salta")
+};
+
+union(
+  renameA{personas.nombre = personas.fullname}(personas),
+  renameA{personas2.nombre = personas2.fullname}(personas2)
+);

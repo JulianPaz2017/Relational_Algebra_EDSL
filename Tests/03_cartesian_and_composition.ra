@@ -1,5 +1,5 @@
 // ============================================================
-// 03_cartesian_and_composition.ra
+// 03_cartesian_and_composition.ar
 // Tests de producto cartesiano y consultas compuestas
 // ============================================================
 
@@ -57,7 +57,7 @@ select{alumnos.curso == materias.codigo && alumnos.curso == docentes.materia}(
 
 // ---- CONSULTAS COMPUESTAS ----
 
-// Alumnos de MAT01 con sus creditos
+// Alumnos de MAT01 con sus créditos
 project{alumnos.nombre, materias.creditos}(
   select{alumnos.curso == "MAT01" && materias.codigo == "MAT01"}(
     cartesian_product(alumnos, materias)
@@ -85,10 +85,34 @@ cartesian_product(
   rename{b}(alumnos)
 );
 
-// Selección sobre producto renombrado
+// Selección sobre producto renombrado: alumnos del mismo curso
 select{a.curso == b.curso && a.nombre != b.nombre}(
   cartesian_product(
     rename{a}(alumnos),
     rename{b}(alumnos)
+  )
+);
+
+// Pares de alumnos
+project{a.nombre, b.nombre}(
+  select{a.nombre != b.nombre}(
+    cartesian_product(
+      rename{a}(alumnos),
+      rename{b}(alumnos)
+    )
+  )
+);
+
+// ---- ANIDAMIENTO PROFUNDO ----
+
+// Alumnos con créditos mayores a 4 y docentes
+project{alumnos.nombre, docentes.nombre}(
+  select{alumnos.curso == materias.codigo && 
+         materias.codigo == docentes.materia && 
+         materias.creditos > 4}(
+    cartesian_product(
+      cartesian_product(alumnos, materias),
+      docentes
+    )
   )
 );

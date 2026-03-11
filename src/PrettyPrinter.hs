@@ -1,4 +1,4 @@
-module PrettyPrinter (ppRelation, ppQuery, ppOperator, ppSchema) where
+module PrettyPrinter (ppRelation, ppQuery, ppOperator, ppSchema, ppError, ppEvalError) where
 
 import            Common
 import            Text.PrettyPrint.HughesPJ
@@ -8,10 +8,32 @@ import  qualified Data.Set                  as     Set
 import            Data.List
 
 
+--------------------------------------
+---- Pretty Printer Esquema (Describe)
+--------------------------------------
+ppSchema :: Relation -> RelationName -> Doc
+ppSchema (Relation _ relationSchema _ _) relationName =
+  text (relationName ++ ":") <+>
+  vcat (map ppAttributeKey relationSchema)
 
-attributeKeyToString :: AttrKey -> String
+  where 
+    ppDomain :: Domain -> Doc
+    ppDomain IntDomain    = text "Int"
+    ppDomain StringDomain = text "String"
+    ppDomain DoubleDomain = text "Double"
+
+    ppAttributeKey :: (AttributeKey, Domain) -> Doc
+    ppAttributeKey (attributeKey, domain) =
+      text (attributeKeyToString attributeKey) <>
+      text ": " <>
+      ppDomain domain
+
+
+--------------------------------------
+---- Pretty Printer Relaciones
+--------------------------------------
+attributeKeyToString :: AttributeKey -> String
 attributeKeyToString (relationName, attributeName) = relationName ++ "." ++ attributeName
-
 
 ppRelation :: Relation -> Doc
 ppRelation (Relation maybeRelationName relationSchema relationInstance _) = 
@@ -60,16 +82,16 @@ ppRelation (Relation maybeRelationName relationSchema relationInstance _) =
     maybeToString (Just s) = s
 
 
-    tupleToStringAux :: Tuple -> AttrKey -> String
-    tupleToStringAux tuple attrKey = 
-      case Map.lookup attrKey tuple of
+    tupleToStringAux :: Tuple -> AttributeKey -> String
+    tupleToStringAux tuple attributeKey = 
+      case Map.lookup attributeKey tuple of
         Nothing              -> "Null"
         Just (IntValue i)    -> show i
         Just (StringValue s) -> s
         Just (DoubleValue d) -> show d
 
 
-    tupleToString :: [AttrKey] -> Tuple -> [String]
+    tupleToString :: [AttributeKey] -> Tuple -> [String]
     tupleToString attrKeys tuple = map (tupleToStringAux tuple) attrKeys
 
 
@@ -88,8 +110,28 @@ ppRelation (Relation maybeRelationName relationSchema relationInstance _) =
         cells = map text paddedValues
       in 
         char '|' <+> hcat (punctuate (text " | ") cells) <+> char '|'
-    
 
+
+
+--------------------------------------
+---- Pretty Printer Operadores Custom
+--------------------------------------
+ppOperator :: OperatorName -> CustomOperator -> Doc
+ppOperator operatorName (CustomOperator _ variableNames query) =
+  text operatorName <> 
+  parens (ppArguments variableNames) <>
+  char '=' <>
+  ppQuery query
+
+  where
+    ppArguments :: [VariableName] -> Doc
+    ppArguments varNames = hcat (punctuate (text ", ") (map text varNames))
+
+
+
+--------------------------------------
+---- Pretty Printer Consultas
+--------------------------------------
 ppValue :: Value -> Doc
 ppValue (IntValue i)    = text (show i) 
 ppValue (StringValue s) = text s
@@ -106,22 +148,22 @@ ppPredicate (PNot predicate)            =
   parens (ppPredicate predicate)
 ppPredicate (PBool bool)                =
   text (show bool)
-ppPredicate (PCmp cmpOp atom atom')     =
-  parens (ppAtom atom <> ppCmpOp cmpOp <> ppAtom atom')
+ppPredicate (PCmp comparisonOperator atom atom')     =
+  parens (ppAtom atom <> ppComparisionOperator comparisonOperator <> ppAtom atom')
   where
-    ppCmpOp :: ComparisonOperator -> Doc
-    ppCmpOp Equal          = text "=="
-    ppCmpOp NotEqual       = text "!="
-    ppCmpOp LessThan       = text "<"
-    ppCmpOp LessOrEqual    = text "<="
-    ppCmpOp GreaterThan    = text ">"
-    ppCmpOp GreaterOrEqual = text ">="
+    ppComparisionOperator :: ComparisonOperator -> Doc
+    ppComparisionOperator Equal          = text "=="
+    ppComparisionOperator NotEqual       = text "!="
+    ppComparisionOperator LessThan       = text "<"
+    ppComparisionOperator LessOrEqual    = text "<="
+    ppComparisionOperator GreaterThan    = text ">"
+    ppComparisionOperator GreaterOrEqual = text ">="
 
     ppAtom :: PredicateAtom -> Doc
     ppAtom (ConstantValue value) = 
       ppValue value
-    ppAtom (AttributeReference rName attrName) = 
-      text (attributeKeyToString (rName, attrName))
+    ppAtom (AttributeReference relationName attributeName) = 
+      text (attributeKeyToString (relationName, attributeName))
 
 
 ppQuery :: Query -> Doc
@@ -130,36 +172,33 @@ ppQuery (Atomic relationName)         =
 ppQuery (Variable variableName)       = 
   text variableName
 ppQuery (Rename relationName query)   = 
-  text ("rename_{" ++ relationName ++ "}") <>
+  text "rename" <>
+  braces (text relationName) <>
   parens (ppQuery query)
 ppQuery (RenameA reNamings query)     = 
-  text "renameA_{" <>
-  (ppReNamings reNamings) <>
-  text "}" <>
+  text "renameA" <>
+  braces (ppReNamings reNamings) <>
   parens (ppQuery query)
   
   where
-    ppReNamings :: [(AttrKey, AttrKey)] -> Doc 
-    ppReNamings []                    = text ""
-    ppReNamings [(attrKey, attrKey')] = 
-      text (attributeKeyToString attrKey) <>
+    ppReNaming :: (AttributeKey, AttributeKey) -> Doc
+    ppReNaming (attributeKey, attributeKey') =
+      text (attributeKeyToString attributeKey) <>
       text "=" <>
-      text (attributeKeyToString attrKey')
-    ppReNamings ((attrKey, attrKey'):attrKeys) = 
-      text (attributeKeyToString attrKey) <>
-      ppReNamings attrKeys
+      text (attributeKeyToString attributeKey')
+
+    ppReNamings :: AttributeKeyMap -> Doc
+    ppReNamings attributeMap = (hcat (punctuate (text ", ") (map ppReNaming (Map.toList attributeMap))))  
 ppQuery (Select predicate query)      =
-  text "select_{" <>
-  ppPredicate predicate <>
-  char '}' <>
+  text "select" <>
+  braces (ppPredicate predicate) <>
   parens (ppQuery query)
 ppQuery (Project attributeKeys query) =
-  text "project_{" <>
-  hcat (punctuate (text ", ") (map (text . attributeKeyToString) attributeKeys)) <>
-  char '}' <>
+  text "project" <>
+  braces (hcat (punctuate (text ", ") (map (text . attributeKeyToString) attributeKeys))) <>
   parens (ppQuery query)
-ppQuery (Binary binOp query query')   =
-  ppBinaryOperator binOp <>
+ppQuery (Binary binaryOperator query query')   =
+  ppBinaryOperator binaryOperator <>
   parens ((ppQuery query) <> (text ", ") <> (ppQuery query'))
   where
     ppBinaryOperator :: BinaryOperator -> Doc
@@ -171,32 +210,48 @@ ppQuery (Custom operatorName querys)  =
   parens (hcat (punctuate (text ", ") (map ppQuery querys)))
 
 
-ppOperator :: OperatorName -> CustomOperator -> Doc
-ppOperator operatorName (CustomOperator _ variableNames query) =
-  text operatorName <> 
-  parens (ppArguments variableNames) <>
-  char '=' <>
-  ppQuery query
 
-  where
-    ppArguments :: [VariableName] -> Doc
-    ppArguments varNames = hcat (punctuate (text ", ") (map text varNames))
+--------------------------------------
+---- Pretty Printer Errores
+--------------------------------------
+ppError :: ContextualError -> Doc
+ppError (ContextualError query context evalErr) = 
+  ppErrorContext context $+$ text "" $+$ nest 2 (ppQuery query) $+$ text "" $+$ ppEvalError evalErr
+
+ppErrorContext :: ErrorContext -> Doc
+ppErrorContext InQuery =
+  text "Error al evaluar la consulta"
+ppErrorContext (InPredicate predicate) =
+  text "Error al evaluar el predicado" $+$ text "" $+$
+  nest 2 (ppPredicate predicate) $+$ text "" $+$
+  text "Dentro de la consulta"
+ppErrorContext InProyect =
+  text "Error al proyectar los argumentos dentro de la consulta"
+ppErrorContext InRenameAttributes =
+  text "Error al renombrar atributos de una relación dentro de la consulta"
+ppErrorContext InSubstitution =
+  text "Error con el operador custom dentro de la consulta"
 
 
-ppSchema :: Relation -> RelationName -> Doc
-ppSchema (Relation _ relationSchema _ _) relationName =
-  text (relationName ++ ":") <+>
-  vcat (map ppAttrKey relationSchema)
-
-  where 
-    ppDomain :: Domain -> Doc
-    ppDomain IntDomain    = text "Int"
-    ppDomain StringDomain = text "String"
-    ppDomain DoubleDomain = text "Double"
-
-    ppAttrKey :: (AttrKey, Domain) -> Doc
-    ppAttrKey (attrKey, domain) =
-      text (attributeKeyToString attrKey) <>
-      text ": " <>
-      ppDomain domain
-
+ppEvalError :: EvalError -> Doc
+ppEvalError (UndefinedRelation relationName) = 
+  text "La relación " <+> quotes (text relationName) <+> text "no existe"
+ppEvalError (UndefinedAttribute attributeKey) =
+  text "El atributo" <+> quotes (text (attributeKeyToString attributeKey)) <+> text "no existe"
+ppEvalError (UndefinedOperator operatorName) =
+  text "El operador" <+> quotes (text operatorName) <+> text "no existe"
+ppEvalError (ArityMismatch operatorName x y) =
+  text "El operador" <+> quotes (text operatorName) <+> 
+  text "espera" <+> text (show x) <+> text "argumentos, pero recibió " <+> text (show y) <+> text "argumentos"
+ppEvalError (UnboundVariable variableName )=
+  text "La variable" <+> quotes (text variableName) <+> text "se encuentra libre"
+ppEvalError IncompatibleSchemas =
+  text "Las relaciones tienen esquemas incompatibles"
+ppEvalError (SameRelationName relationName) =
+  text "Producto cartesiano entre relaciones con el mismo nombre" <+> parens (text relationName)
+ppEvalError (SharedAttributes attributeKey) =
+  text "Producto cartesiano entre relaciones con atributos compartidos" <+> 
+  parens (text (attributeKeyToString attributeKey))
+ppEvalError (DuplicateAttributeName attributeKey) =
+  text "El renombramiento genera atributos duplicados" <+> 
+  parens (text (attributeKeyToString attributeKey))
