@@ -160,7 +160,6 @@ module Common where
               deriving (Eq, Ord, Show)
 
 
-  -- Sinonimos de tipos
   -- Esquema
   type Schema    = [(AttributeKey, Domain)]
 
