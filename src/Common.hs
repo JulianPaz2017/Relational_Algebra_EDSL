@@ -33,7 +33,6 @@ module Common where
                   | SameRelationName       RelationName 
                   | SharedAttributes       AttributeKey
                   | DuplicateAttributeName AttributeKey
-                  | TypeMismatch           Domain       Domain 
 
 
   data ErrorContext =  InQuery
