@@ -84,5 +84,5 @@ El usuario puede interactuar con el intérprete mediante el uso de comandos. Los
 El usuario tambien puede interactuar con el intérprete escribiendo sentencias del EDSL separadas por ';'. Por ejemplo:
 
 ```
-CREATE TABLE nombre_tabla (col1 tipo1, col2 tipo2, ...);
+CREATE nombre_tabla {col1 tipo1, col2 tipo2, ...};
 ```
